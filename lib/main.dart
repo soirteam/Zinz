@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
 import 'locationLogger.dart';
 
 void main() {
@@ -47,7 +50,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: const MyHomePage(title: 'Zinz v0.0.0'),
     );
   }
 }
@@ -62,44 +65,65 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+  final _mapController = MapController();
+  List<LatLng> _positions = [];
 
-  void _incrementCounter() async {
+  void _initMarker() async {
     await locationLogger.getLocationPermission();
-    await locationLogger.locationUpdate();
+    LatLng? locationData = await locationLogger.locationUpdate();
+    LatLng? getUserLocation = await locationLogger.getUserLocation("user1");
     String? token = await FirebaseMessaging.instance.getToken();
-    print(token);
-    setState(() {
-      _counter++;
-    });
+
+    print(getUserLocation);
+      if (locationData != null && getUserLocation != null) {
+        setState(() {
+          _positions = [locationData, getUserLocation];
+        });
+      }
   }
 
 
   @override
   Widget build(BuildContext context) {
+    List<Marker> markers = _positions.map((position) => Marker(
+      width: 80.0,
+      height: 80.0,
+      point: position,
+      builder: (ctx) => Container(
+        child: Transform.translate(
+            offset: Offset(0, -30),
+            child: Icon(
+              Icons.location_history,
+              color: Colors.black,
+              size: 60,
+            ),
+        )
+      ),
+    )).toList();
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title),
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text(
-              'You have pushed the button this many times:',
-            ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headline4,
-            ),
+      body: FlutterMap(
+          mapController: _mapController,
+          options: MapOptions(
+              center: LatLng(0, 0),
+              zoom: 9.2,
+          ),
+          children: [
+              TileLayer(
+                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'wtf.soir.zinz',
+              ),
+              MarkerLayer(markers: markers),
           ],
-        ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ),
+      floatingActionButton:
+          FloatingActionButton(
+              onPressed: _initMarker,
+              tooltip: 'Increment',
+              child: const Icon(Icons.add),
+          ),
     );
   }
 }

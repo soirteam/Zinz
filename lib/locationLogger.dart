@@ -1,5 +1,7 @@
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
+import 'package:latlong2/latlong.dart';
+import 'dart:convert' as convert;
 
 class locationLogger {
   static Future<bool> getLocationPermission() async {
@@ -27,20 +29,21 @@ class locationLogger {
         return true;
   }
   
-  static Future<void> locationUpdate() async {
-    Position _locationData;
+  static Future<LatLng?> locationUpdate() async {
+    Position? _locationData = null;
   
     if (await getLocationPermission()) {
       print('Location permission ready !');
       _locationData = await Geolocator.getCurrentPosition().catchError((err) { print(err); });
       print(_locationData);
       updateZinzLocation(_locationData);
-  
+
       // location.onLocationChanged.listen((LocationData currentLocation) {
       //   print(currentLocation);
       //   updateZinzLocation(currentLocation);
       // });
     }
+    return _locationData != null ? LatLng(_locationData.latitude, _locationData.longitude) : null;
   }
 
   static Future<void> updateZinzLocation(Position locationData) async {
@@ -50,5 +53,20 @@ class locationLogger {
     await http.post(
       Uri.parse("https://random-tests.lancelot.life/location/lancelot?latitude=$latitude&longitude=$longitude"),
     );
+  }
+
+  static Future<LatLng?> getUserLocation(String user) async {
+    LatLng? _locationData = null;
+
+    final response = await http.get(Uri.parse("https://random-tests.lancelot.life/location/$user"));
+
+    if (response.statusCode == 200) {
+      var jsonResponse = convert.jsonDecode(response.body);
+      _locationData = LatLng(jsonResponse['latitude'], jsonResponse['longitude']);
+    } else {
+      throw Exception('Failed to load user location');
+    }
+    
+    return _locationData;
   }
 }
